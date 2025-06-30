@@ -2,6 +2,7 @@ button {margin: 10px;}
 
 dialog{
   background-color: var(--bg);
+  border: 2px solid silver ;
 }
 
 li {

@@ -1,16 +1,12 @@
 import { useState, useEffect } from "react";
-import { Authenticator } from "@aws-amplify/ui-react";
 import { Amplify } from "aws-amplify";
 import "@aws-amplify/ui-react/styles.css";
-import { getUrl } from "aws-amplify/storage";
 import { generateClient } from "aws-amplify/data";
 import outputs from "../amplify_outputs.json";
 import type { Schema } from "../amplify/data/resource";
 
 Amplify.configure(outputs);
-const client = generateClient<Schema>({
-  authMode: "userPool",
-});
+const client = generateClient<Schema>();
 
 type Note = {
   name: string | null;
@@ -32,6 +28,7 @@ export default function App() {
   const [description, setDescription] = useState<string>("");
   const [openSaveDialog, setOpenSaveDialog] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
+
   useEffect(() => {
     fetchNotes();
   }, []);
@@ -39,18 +36,8 @@ export default function App() {
   async function fetchNotes() {
     const { data: notes } = await client.models.Note.list();
     await Promise.all(
-      notes.map(async (note) => {
-        if (note.image) {
-          const linkToStorageFile = await getUrl({
-            path: ({ identityId }) => `media/${identityId}/${note.image}`,
-          });
-          console.log(linkToStorageFile.url);
-          note.image = linkToStorageFile.url.toString();
-        }
-        return note;
-      })
+      notes.map(async (note) => note)
     );
-    console.log(notes);
     setNotes(notes);
   }
 
@@ -60,10 +47,7 @@ export default function App() {
       description,
     };
     if (hasRequiredValues(note)) {
-      console.log(note);
-      const { data: newNote } = await client.models.Note.create(note);
-
-      console.log("newNote", newNote);
+      await client.models.Note.create(note);
       setOpenSaveDialog(false);
       setErrorMessage("");
       fetchNotes();
@@ -73,59 +57,55 @@ export default function App() {
   }
 
   return (
-    <Authenticator>
-      {({ signOut }) => (
-        <>
-          <button className="right" onClick={signOut}>
-            Sign Out
-          </button>
-          <p>
-            Please log comments and bugs below. With bugs please include as much
-            details as possible and ideally include the steps to recreate.
-            Thanks for taking the time to add logs.
-          </p>{" "}
-          <button onClick={() => setOpenSaveDialog(!openSaveDialog)}>
-            Add New Comment/Bug
-          </button>
-          <dialog open={openSaveDialog}>
-            <label htmlFor="noteName">Title</label>
+    <>
 
-            <input
-              required
-              id="noteName"
-              onInput={(e) => setName(e.currentTarget.value)}
-            />
-            <label htmlFor="noteDescription">Comment</label>
-            <textarea
-              required
-              cols={30}
-              id="noteDescription"
-              onInput={(e) => setDescription(e.currentTarget.value)}
-            />
+      <p>
+        Please log comments and bugs below. With bugs please include as much
+        details as possible and ideally include the steps to recreate.
+        Thanks for taking the time to add logs.
+      </p>
+      <button onClick={() => setOpenSaveDialog(!openSaveDialog)}>
+        Add New Comment/Bug
+      </button>
+      <dialog open={openSaveDialog}>
+        <label htmlFor="noteName">Title</label>
 
-            <p>{errorMessage}</p>
+        <input
+          required
+          id="noteName"
+          onInput={(e) => setName(e.currentTarget.value)}
+        />
+        <label htmlFor="noteDescription">Comment</label>
+        <textarea
+          required
+          cols={30}
+          id="noteDescription"
+          onInput={(e) => setDescription(e.currentTarget.value)}
+        />
 
-            <button onClick={createNote}>Save</button>
+        <p>{errorMessage}</p>
 
-            <button onClick={() => {
-              setOpenSaveDialog(!openSaveDialog);
-              setErrorMessage("")}}>
-              Close
-            </button>
-          </dialog>
-          <ol>
-            {notes
-              .filter((n) => hasRequiredValues(n))
-              .map((note, i) => (
-                <li key={i}>
-                  <p>
-                    <b>{note.name}</b>:{note.description}
-                  </p>
-                </li>
-              ))}
-          </ol>
-        </>
-      )}
-    </Authenticator>
+        <button onClick={createNote}>Save</button>
+
+        <button onClick={() => {
+          setOpenSaveDialog(!openSaveDialog);
+          setErrorMessage("")
+        }}>
+          Close
+        </button>
+      </dialog>
+      <ol>
+        {notes
+          .filter((n) => hasRequiredValues(n))
+          .map((note, i) => (
+            <li key={i}>
+              <p>
+                <b>{note.name}</b>:{note.description}
+              </p>
+            </li>
+          ))}
+      </ol>
+
+    </>
   );
 }
